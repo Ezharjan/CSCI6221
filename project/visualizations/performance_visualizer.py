@@ -25,10 +25,27 @@ sns.set_palette("husl")
 class PerformanceVisualizer:
     """Main class for generating performance visualizations"""
     
-    def __init__(self, output_dir="visualizations"):
-        """Initialize the visualizer with output directory"""
+    def __init__(self, output_dir="visualizations", headless=False, enable_report=True,
+                 no_throughput=False, no_latency=False, no_memory=False,
+                 no_concurrency=False, no_scalability=False, no_stress=False):
+        """Initialize the visualizer with output directory.
+
+        headless: if True, do not call plt.show() (useful for CI/headless runs).
+        enable_report: if True, collect a report of created/skipped charts.
+        """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
+        self.headless = bool(headless)
+        self.enable_report = bool(enable_report)
+        # report structure to record created/skipped charts
+        self._report = {"created": [], "skipped": []}
+        # per-chart disable flags
+        self.no_throughput = bool(no_throughput)
+        self.no_latency = bool(no_latency)
+        self.no_memory = bool(no_memory)
+        self.no_concurrency = bool(no_concurrency)
+        self.no_scalability = bool(no_scalability)
+        self.no_stress = bool(no_stress)
         
     def load_metrics_json(self, json_file):
         """Load performance metrics from JSON file"""
@@ -50,6 +67,29 @@ class PerformanceVisualizer:
     
     def create_throughput_chart(self, metrics, title="Trading Throughput Analysis"):
         """Create a throughput analysis chart"""
+        if self.no_throughput:
+            print("Throughput chart generation disabled by flag; skipping")
+            if self.enable_report:
+                self._report['skipped'].append('throughput_analysis')
+            return None
+        # Verify input has meaningful data to plot; skip if everything is zero/empty
+        def _has_nonzero(vals):
+            try:
+                return any((v is not None and float(v) != 0) for v in vals)
+            except Exception:
+                return False
+
+        throughput_vals = [metrics.get('trades_per_second', 0), metrics.get('orders_per_second', 0)]
+        ops_vals = [metrics.get('total_trades', 0), metrics.get('total_orders', 0), metrics.get('total_cancellations', 0)]
+        latency_vals = [metrics.get('avg_order_latency', 0), metrics.get('avg_trade_latency', 0)]
+        resource_vals = [metrics.get('peak_memory_usage', 0), metrics.get('max_goroutines', 0), metrics.get('num_cpu', 0)]
+
+        if not (_has_nonzero(throughput_vals) or _has_nonzero(ops_vals) or _has_nonzero(latency_vals) or _has_nonzero(resource_vals)):
+            print("No meaningful throughput metrics to plot; skipping throughput chart")
+            if self.enable_report:
+                self._report['skipped'].append('throughput_analysis')
+            return None
+
         fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
         fig.suptitle(title, fontsize=16, fontweight='bold')
         
@@ -58,7 +98,12 @@ class PerformanceVisualizer:
         values = [metrics['trades_per_second'], metrics['orders_per_second']]
         colors = ['#FF6B6B', '#4ECDC4']
         
-        bars1 = ax1.bar(categories, values, color=colors, alpha=0.8)
+        if _has_nonzero(values):
+            bars1 = ax1.bar(categories, values, color=colors, alpha=0.8)
+        else:
+            ax1.axis('off')
+            ax1.text(0.5, 0.5, 'No throughput data', ha='center', va='center')
+            bars1 = []
         ax1.set_title('Throughput Metrics', fontweight='bold')
         ax1.set_ylabel('Operations per Second')
         
@@ -72,7 +117,12 @@ class PerformanceVisualizer:
         op_values = [metrics['total_trades'], metrics['total_orders'], metrics['total_cancellations']]
         colors2 = ['#FF9F43', '#10AC84', '#EE5A24']
         
-        bars2 = ax2.bar(operations, op_values, color=colors2, alpha=0.8)
+        if _has_nonzero(op_values):
+            bars2 = ax2.bar(operations, op_values, color=colors2, alpha=0.8)
+        else:
+            ax2.axis('off')
+            ax2.text(0.5, 0.5, 'No operations data', ha='center', va='center')
+            bars2 = []
         ax2.set_title('Total Operations', fontweight='bold')
         ax2.set_ylabel('Count')
         ax2.tick_params(axis='x', rotation=45)
@@ -91,7 +141,12 @@ class PerformanceVisualizer:
         ]
         colors3 = ['#A55EEA', '#26C6DA']
         
-        bars3 = ax3.bar(latencies, lat_values, color=colors3, alpha=0.8)
+        if _has_nonzero(lat_values):
+            bars3 = ax3.bar(latencies, lat_values, color=colors3, alpha=0.8)
+        else:
+            ax3.axis('off')
+            ax3.text(0.5, 0.5, 'No latency data', ha='center', va='center')
+            bars3 = []
         ax3.set_title('Latency Analysis', fontweight='bold')
         ax3.set_ylabel('Latency (μs)')
         ax3.tick_params(axis='x', rotation=45)
@@ -110,7 +165,12 @@ class PerformanceVisualizer:
         ]
         colors4 = ['#FD79A8', '#FDCB6E', '#6C5CE7']
         
-        bars4 = ax4.bar(resources, res_values, color=colors4, alpha=0.8)
+        if _has_nonzero(res_values):
+            bars4 = ax4.bar(resources, res_values, color=colors4, alpha=0.8)
+        else:
+            ax4.axis('off')
+            ax4.text(0.5, 0.5, 'No resource usage data', ha='center', va='center')
+            bars4 = []
         ax4.set_title('Resource Utilization', fontweight='bold')
         ax4.set_ylabel('Count/Size')
         
@@ -123,31 +183,55 @@ class PerformanceVisualizer:
         output_file = self.output_dir / f"throughput_analysis.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Throughput chart saved to: {output_file}")
-        plt.show()
+        if self.enable_report:
+            self._report['created'].append(str(output_file.name))
+        if not self.headless:
+            plt.show()
         
         return fig
     
     def create_latency_histogram(self, metrics, title="Latency Distribution Analysis"):
         """Create latency histogram visualization"""
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+        if self.no_latency:
+            print("Latency histogram generation disabled by flag; skipping")
+            if self.enable_report:
+                self._report['skipped'].append('latency_histogram')
+            return None
+        # Create histogram(s) only for available data; avoid empty subplots
+        has_order = 'order_latency_histogram' in metrics and metrics['order_latency_histogram']
+        has_trade = 'trade_latency_histogram' in metrics and metrics['trade_latency_histogram']
+
+        if not has_order and not has_trade:
+            print("No latency histogram data available; skipping latency histogram")
+            if self.enable_report:
+                self._report['skipped'].append('latency_histogram')
+            return None
+
+        if has_order and has_trade:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+        else:
+            fig, ax1 = plt.subplots(1, 1, figsize=(8, 6))
+            ax2 = None
+
         fig.suptitle(title, fontsize=16, fontweight='bold')
-        
+
         # Order Latency Histogram
-        if 'order_latency_histogram' in metrics and metrics['order_latency_histogram']:
+        if has_order:
             hist_data = metrics['order_latency_histogram']
             bins = range(len(hist_data))
-            
             ax1.bar(bins, hist_data, color='#FF6B6B', alpha=0.7, edgecolor='black')
             ax1.set_title('Order Latency Distribution', fontweight='bold')
             ax1.set_xlabel('Latency Buckets')
             ax1.set_ylabel('Frequency')
             ax1.grid(True, alpha=0.3)
-        
+        else:
+            ax1.axis('off')
+            ax1.text(0.5, 0.5, 'No order latency data', ha='center', va='center')
+
         # Trade Latency Histogram
-        if 'trade_latency_histogram' in metrics and metrics['trade_latency_histogram']:
+        if has_trade and ax2 is not None:
             hist_data = metrics['trade_latency_histogram']
             bins = range(len(hist_data))
-            
             ax2.bar(bins, hist_data, color='#4ECDC4', alpha=0.7, edgecolor='black')
             ax2.set_title('Trade Latency Distribution', fontweight='bold')
             ax2.set_xlabel('Latency Buckets')
@@ -158,12 +242,20 @@ class PerformanceVisualizer:
         output_file = self.output_dir / f"latency_histogram.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Latency histogram saved to: {output_file}")
-        plt.show()
+        if self.enable_report:
+            self._report['created'].append(str(output_file.name))
+        if not self.headless:
+            plt.show()
         
         return fig
     
     def create_memory_timeline(self, metrics, title="Memory Usage Timeline"):
         """Create memory usage timeline visualization"""
+        if self.no_memory:
+            print("Memory timeline generation disabled by flag; skipping")
+            if self.enable_report:
+                self._report['skipped'].append('memory_timeline')
+            return None
         if 'memory_snapshots' not in metrics or not metrics['memory_snapshots']:
             print("No memory snapshots available for timeline")
             return None
@@ -198,21 +290,29 @@ class PerformanceVisualizer:
         output_file = self.output_dir / f"memory_timeline.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Memory timeline saved to: {output_file}")
-        plt.show()
+        if self.enable_report:
+            self._report['created'].append(str(output_file.name))
+        if not self.headless:
+            plt.show()
         
         return fig
     
     def create_concurrency_comparison(self, comparison_data, title="Go Concurrency vs Sequential Performance"):
         """Create concurrency comparison visualization"""
+        if self.no_concurrency:
+            print("Concurrency comparison generation disabled by flag; skipping")
+            if self.enable_report:
+                self._report['skipped'].append('concurrency_comparison')
+            return None
         if not comparison_data:
             print("No comparison data available")
             return None
         
         fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
         fig.suptitle(title, fontsize=16, fontweight='bold')
-        
-        concurrent = comparison_data['concurrent_result']
-        sequential = comparison_data['sequential_result']
+        # Safely extract nested results
+        concurrent = comparison_data.get('concurrent_result', {})
+        sequential = comparison_data.get('sequential_result', {})
         
         # 1. Throughput Comparison
         categories = ['Trades/Second', 'Peak Memory (MB)', 'GC Pause (ms)']
@@ -268,7 +368,7 @@ class PerformanceVisualizer:
             ax2.text(bar.get_x() + bar.get_width()/2, height + abs(height)*0.05,
                     f'{value:.2f}', ha='center', va='bottom', fontweight='bold')
         
-        # 3. Latency Comparison
+    # 3. Latency Comparison
         latency_types = ['Avg Latency (ns)']
         conc_latency = [concurrent.get('avg_latency', 0)]
         seq_latency = [sequential.get('avg_latency', 0)]
@@ -292,7 +392,7 @@ class PerformanceVisualizer:
                 ax3.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
                         f'{height:.0f}', ha='center', va='bottom', fontsize=10)
         
-        # 4. Go Advantages Summary
+    # 4. Go Advantages Summary
         advantages = ['Goroutines\nEfficiency', 'Memory\nManagement', 'GC\nPerformance']
         speedup_ratio = comparison_data.get('speedup_ratio', 1.0)
         memory_overhead = comparison_data.get('memory_overhead', 0.0)
@@ -319,14 +419,24 @@ class PerformanceVisualizer:
         output_file = self.output_dir / f"concurrency_comparison.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Concurrency comparison saved to: {output_file}")
-        plt.show()
+        if self.enable_report:
+            self._report['created'].append(str(output_file.name))
+        if not self.headless:
+            plt.show()
         
         return fig
     
     def create_scalability_analysis(self, scalability_data, title="Scalability Analysis"):
         """Create scalability analysis visualization"""
+        if self.no_scalability:
+            print("Scalability analysis generation disabled by flag; skipping")
+            if self.enable_report:
+                self._report['skipped'].append('scalability_analysis')
+            return None
         if not scalability_data or len(scalability_data) < 2:
             print("Insufficient scalability data")
+            if self.enable_report:
+                self._report['skipped'].append('scalability_analysis')
             return None
         
         # Extract data
@@ -357,55 +467,79 @@ class PerformanceVisualizer:
         fig.suptitle(title, fontsize=16, fontweight='bold')
         
         # 1. Throughput vs Agents
-        ax1.plot(agent_counts, throughput, marker='o', linewidth=3, markersize=8, color='#4ECDC4')
+        if all(v == 0 for v in throughput):
+            print("Throughput vector is all zeros; skipping scalability throughput plot")
+            ax1.axis('off')
+            ax1.text(0.5, 0.5, 'No throughput data', ha='center', va='center')
+        else:
+            ax1.plot(agent_counts, throughput, marker='o', linewidth=3, markersize=8, color='#4ECDC4')
         ax1.set_title('Throughput Scalability', fontweight='bold')
         ax1.set_xlabel('Number of Agents')
         ax1.set_ylabel('Trades per Second')
         ax1.grid(True, alpha=0.3)
         
         # Add value labels
-        for x, y in zip(agent_counts, throughput):
-            ax1.text(x, y + max(throughput)*0.02, f'{y:.1f}', ha='center', va='bottom')
+        if any(v != 0 for v in throughput):
+            for x, y in zip(agent_counts, throughput):
+                ax1.text(x, y + max(throughput)*0.02, f'{y:.1f}', ha='center', va='bottom')
         
         # 2. Memory Usage vs Agents
-        ax2.plot(agent_counts, memory_usage, marker='s', linewidth=3, markersize=8, color='#FF6B6B')
+        if all(v == 0 for v in memory_usage):
+            ax2.axis('off')
+            ax2.text(0.5, 0.5, 'No memory data', ha='center', va='center')
+        else:
+            ax2.plot(agent_counts, memory_usage, marker='s', linewidth=3, markersize=8, color='#FF6B6B')
         ax2.set_title('Memory Usage Scalability', fontweight='bold')
         ax2.set_xlabel('Number of Agents')
         ax2.set_ylabel('Peak Memory (MB)')
         ax2.grid(True, alpha=0.3)
         
         # Add value labels
-        for x, y in zip(agent_counts, memory_usage):
-            ax2.text(x, y + max(memory_usage)*0.02, f'{y:.1f}', ha='center', va='bottom')
+        if any(v != 0 for v in memory_usage):
+            for x, y in zip(agent_counts, memory_usage):
+                ax2.text(x, y + max(memory_usage)*0.02, f'{y:.1f}', ha='center', va='bottom')
         
         # 3. Goroutines vs Agents
-        ax3.plot(agent_counts, max_goroutines, marker='^', linewidth=3, markersize=8, color='#FFA726')
+        if all(v == 0 for v in max_goroutines):
+            ax3.axis('off')
+            ax3.text(0.5, 0.5, 'No goroutine data', ha='center', va='center')
+        else:
+            ax3.plot(agent_counts, max_goroutines, marker='^', linewidth=3, markersize=8, color='#FFA726')
         ax3.set_title('Goroutine Scalability', fontweight='bold')
         ax3.set_xlabel('Number of Agents')
         ax3.set_ylabel('Max Goroutines')
         ax3.grid(True, alpha=0.3)
         
         # Add value labels
-        for x, y in zip(agent_counts, max_goroutines):
-            ax3.text(x, y + max(max_goroutines)*0.02, f'{y}', ha='center', va='bottom')
+        if any(v != 0 for v in max_goroutines):
+            for x, y in zip(agent_counts, max_goroutines):
+                ax3.text(x, y + max(max_goroutines)*0.02, f'{y}', ha='center', va='bottom')
         
         # 4. Efficiency Ratio (Throughput per Agent)
         efficiency = [t/a if a > 0 else 0 for t, a in zip(throughput, agent_counts)]
-        ax4.plot(agent_counts, efficiency, marker='D', linewidth=3, markersize=8, color='#10AC84')
+        if all(v == 0 for v in efficiency):
+            ax4.axis('off')
+            ax4.text(0.5, 0.5, 'No efficiency data', ha='center', va='center')
+        else:
+            ax4.plot(agent_counts, efficiency, marker='D', linewidth=3, markersize=8, color='#10AC84')
         ax4.set_title('Efficiency per Agent', fontweight='bold')
         ax4.set_xlabel('Number of Agents')
         ax4.set_ylabel('Trades per Second per Agent')
         ax4.grid(True, alpha=0.3)
         
         # Add value labels
-        for x, y in zip(agent_counts, efficiency):
-            ax4.text(x, y + max(efficiency)*0.02, f'{y:.2f}', ha='center', va='bottom')
+        if any(v != 0 for v in efficiency):
+            for x, y in zip(agent_counts, efficiency):
+                ax4.text(x, y + max(efficiency)*0.02, f'{y:.2f}', ha='center', va='bottom')
         
         plt.tight_layout()
         output_file = self.output_dir / f"scalability_analysis.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Scalability analysis saved to: {output_file}")
-        plt.show()
+        if self.enable_report:
+            self._report['created'].append(str(output_file.name))
+        if not self.headless:
+            plt.show()
         
         return fig
     
@@ -419,6 +553,10 @@ class PerformanceVisualizer:
             print(f"Failed to load metrics from {metrics_file}")
             return
         
+        # Reset report for this run
+        if self.enable_report:
+            self._report = {"created": [], "skipped": []}
+
         # Determine the type of data we're dealing with
         if isinstance(metrics, dict):
             # Check if it's a comparison file
@@ -458,11 +596,29 @@ class PerformanceVisualizer:
             scalability_data = self.load_metrics_json(scalability_file)
             if scalability_data and isinstance(scalability_data, list):
                 self.create_scalability_analysis(scalability_data)
-        
+        # Save a small report file listing created and skipped charts
+        if self.enable_report:
+            report_path = self.output_dir / 'visualization_report.json'
+            try:
+                with open(report_path, 'w') as rf:
+                    json.dump(self._report, rf, indent=2)
+                print(f"Visualization report saved to: {report_path}")
+            except Exception as e:
+                print(f"Failed to write report: {e}")
+
         print(f"\nAll visualizations saved to: {self.output_dir}")
+        # Return the per-run report (created/skipped) when enabled
+        if self.enable_report:
+            return self._report
+        return None
     
     def create_single_result_chart(self, result, title):
         """Create a chart for a single benchmark result"""
+        if self.no_stress:
+            print(f"Single-result/stress chart generation disabled by flag; skipping {title}")
+            if self.enable_report:
+                self._report['skipped'].append(f"single_result_{title}")
+            return None
         fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
         fig.suptitle(title, fontsize=16, fontweight='bold')
         
@@ -506,11 +662,11 @@ class PerformanceVisualizer:
         
         # Summary
         ax4.text(0.5, 0.6, "Go Concurrency Advantages:", 
-                ha='center', va='center', transform=ax4.transAxes, fontsize=14, fontweight='bold')
-        ax4.text(0.5, 0.4, "✓ Lightweight goroutines", 
-                ha='center', va='center', transform=ax4.transAxes, fontsize=12)
-        ax4.text(0.5, 0.2, "✓ Efficient memory usage", 
-                ha='center', va='center', transform=ax4.transAxes, fontsize=12)
+            ha='center', va='center', transform=ax4.transAxes, fontsize=14, fontweight='bold')
+        ax4.text(0.5, 0.4, "- Lightweight goroutines", 
+            ha='center', va='center', transform=ax4.transAxes, fontsize=12)
+        ax4.text(0.5, 0.2, "- Efficient memory usage", 
+            ha='center', va='center', transform=ax4.transAxes, fontsize=12)
         ax4.set_title('Summary', fontweight='bold')
         ax4.axis('off')
         
@@ -519,9 +675,162 @@ class PerformanceVisualizer:
         output_file = self.output_dir / f"{safe_title.lower()}_chart.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Chart saved to: {output_file}")
-        plt.show()
+        if self.enable_report:
+            self._report['created'].append(str(output_file.name))
+        if not self.headless:
+            plt.show()
         
         return fig
+
+    def generate_html_dashboard(self, consolidated_report_path=None):
+        """Generate a simple HTML dashboard embedding generated PNGs.
+
+        If consolidated_report_path is provided, use it to order files and captions;
+        otherwise look for 'visualization_run_report.json' in output_dir.
+        """
+        if consolidated_report_path:
+            cr_path = Path(consolidated_report_path)
+        else:
+            cr_path = self.output_dir / 'visualization_run_report.json'
+
+        if not cr_path.exists():
+            print(f"Consolidated report not found: {cr_path}; cannot build dashboard")
+            return None
+
+        try:
+            with open(cr_path, 'r') as f:
+                consolidated = json.load(f)
+        except Exception as e:
+            print(f"Failed to load consolidated report: {e}")
+            return None
+
+        # Build an improved HTML dashboard with thumbnails, modal viewer, and summary tables
+        html_lines = [
+            '<!doctype html>',
+            '<html lang="en">',
+            '<head>',
+            '<meta charset="utf-8"/>',
+            '<meta name="viewport" content="width=device-width, initial-scale=1"/>',
+            '<title>Visualization Dashboard</title>',
+            '<style>',
+            'body{font-family:Arial, Helvetica, sans-serif; margin:20px; background:#f8f9fb; color:#222}',
+            '.container{max-width:1200px;margin:0 auto}',
+            'h1{color:#333}',
+            '.file-section{background:#fff;border:1px solid #e6e9ee;padding:16px;margin-bottom:18px;border-radius:6px;}',
+            '.thumbs{display:flex;flex-wrap:wrap;gap:12px}',
+            '.thumb{width:220px;text-align:center;background:#fafbfc;padding:8px;border-radius:4px;border:1px solid #eee}',
+            '.thumb img{max-width:200px;height:auto;cursor:pointer;border-radius:3px}',
+            '.caption{color:#555;font-size:0.9em;margin-top:6px}',
+            '.summary{margin-top:10px;font-size:0.95em}',
+            'table.metrics{border-collapse:collapse;width:100%;max-width:600px}',
+            'table.metrics td, table.metrics th{border:1px solid #e6e9ee;padding:6px 8px}',
+            'table.metrics th{background:#f1f5f9;text-align:left}',
+            '/* Modal */',
+            '.modal{display:none;position:fixed;z-index:9999;left:0;top:0;width:100%;height:100%;overflow:auto;background:rgba(0,0,0,0.75)}',
+            '.modal-content{margin:5% auto;display:block;max-width:90%;max-height:85%}',
+            '.modal-close{position:absolute;right:22px;top:12px;color:#fff;font-size:28px;cursor:pointer}',
+            '</style>',
+            '</head>',
+            '<body>',
+            '<div class="container">',
+            '<h1>Visualization Dashboard</h1>',
+            f'<p>Generated on: {datetime.utcnow().isoformat()} UTC</p>'
+        ]
+
+        # Helper to try to load the original JSON from evaluation_results for numeric summaries
+        eval_dir = Path('.') / 'evaluation_results'
+
+        for fname, report in consolidated.items():
+            html_lines.append(f'<div class="file-section"><h2>{fname}</h2>')
+            created = report.get('created', []) or []
+            skipped = report.get('skipped', []) or []
+
+            # Numeric summary (attempt to find matching JSON in evaluation_results)
+            summary_html = ''
+            candidate = eval_dir / fname
+            if candidate.exists():
+                try:
+                    with open(candidate, 'r') as jf:
+                        data = json.load(jf)
+                    # Build a small metrics row (best-effort keys)
+                    metrics_row = {}
+                    if isinstance(data, dict):
+                        metrics_row['trades_per_second'] = data.get('trades_per_second')
+                        metrics_row['avg_order_latency_ns'] = data.get('avg_order_latency')
+                        metrics_row['peak_memory_mb'] = data.get('peak_memory_mb') or (data.get('peak_memory_usage') and data.get('peak_memory_usage')/(1024*1024))
+                        metrics_row['max_goroutines'] = data.get('max_goroutines') or data.get('max_goroutine')
+                    # Create HTML table
+                    rows = []
+                    for k, v in metrics_row.items():
+                        if v is None:
+                            continue
+                        if isinstance(v, float):
+                            cell = f"{v:.2f}"
+                        else:
+                            cell = str(v)
+                        rows.append(f'<tr><th>{k}</th><td>{cell}</td></tr>')
+                    if rows:
+                        summary_html = '<div class="summary"><strong>Summary:</strong><table class="metrics">' + ''.join(rows) + '</table></div>'
+                except Exception:
+                    summary_html = ''
+
+            if summary_html:
+                html_lines.append(summary_html)
+
+            if not created:
+                html_lines.append('<p class="caption">No charts created for this file.</p>')
+            else:
+                html_lines.append('<div class="thumbs">')
+                for img in created:
+                    rel = img.replace('\\', '/')
+                    # The image path is relative to output dir; ensure the dashboard can reference it
+                    html_lines.append(
+                        '<div class="thumb">'
+                        f'<img src="{rel}" alt="{img}" onclick="openModal(\'{rel}\')"/>'
+                        f'<div class="caption">{img}</div>'
+                        '</div>'
+                    )
+                html_lines.append('</div>')
+
+            if skipped:
+                html_lines.append(f'<p class="caption">Skipped charts: {", ".join(skipped)}</p>')
+            html_lines.append('</div>')
+
+        # Add modal and JS
+        html_lines.extend([
+            '<div id="modal" class="modal" onclick="closeModal()">',
+            '<span class="modal-close" onclick="closeModal()">&times;</span>',
+            '<img class="modal-content" id="modal-img">',
+            '</div>',
+            '<script>',
+            'function openModal(src){',
+            '  var m = document.getElementById("modal");',
+            '  var mi = document.getElementById("modal-img");',
+            '  mi.src = src;',
+            '  m.style.display = "block";',
+            '}',
+            'function closeModal(){',
+            '  var m = document.getElementById("modal");',
+            '  m.style.display = "none";',
+            '  document.getElementById("modal-img").src = "";',
+            '}',
+            'document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeModal(); });',
+            '</script>'
+        ])
+
+        html_lines.extend(['</div>', '</body>', '</html>'])
+
+        out_path = self.output_dir / 'dashboard_index.html'
+        try:
+            with open(out_path, 'w', encoding='utf-8') as hf:
+                hf.write('\n'.join(html_lines))
+            print(f"HTML dashboard created at: {out_path}")
+            if self.enable_report:
+                self._report['created'].append(str(out_path.name))
+            return out_path
+        except Exception as e:
+            print(f"Failed to write dashboard HTML: {e}")
+            return None
 
 def main():
     """Main function for command-line usage"""
@@ -530,18 +839,61 @@ def main():
     parser.add_argument('--comparison', help='JSON file containing concurrency comparison data')
     parser.add_argument('--scalability', help='JSON file containing scalability test data')
     parser.add_argument('--output-dir', default='visualizations', help='Output directory for charts')
+    parser.add_argument('--headless', action='store_true', help='Run in headless mode and do not call plt.show()')
+    parser.add_argument('--no-report', action='store_true', help='Disable generation of the visualization report JSON')
+    parser.add_argument('--process-all', action='store_true', help='Process all JSON files in project/evaluation_results')
+    parser.add_argument('--no-throughput', action='store_true', help='Do not generate throughput charts')
+    parser.add_argument('--no-latency', action='store_true', help='Do not generate latency histograms')
+    parser.add_argument('--no-memory', action='store_true', help='Do not generate memory timeline charts')
+    parser.add_argument('--no-concurrency', action='store_true', help='Do not generate concurrency comparison charts')
+    parser.add_argument('--no-scalability', action='store_true', help='Do not generate scalability charts')
+    parser.add_argument('--no-stress', action='store_true', help='Do not generate single-result/stress charts')
     
     args = parser.parse_args()
     
-    # Create visualizer
-    visualizer = PerformanceVisualizer(args.output_dir)
-    
-    # Generate comprehensive report
-    visualizer.generate_comprehensive_report(
-        args.metrics_file,
-        args.comparison,
-        args.scalability
+    # Create visualizer (respect headless, report, and per-chart options)
+    visualizer = PerformanceVisualizer(
+        args.output_dir,
+        headless=args.headless,
+        enable_report=not args.no_report,
+        no_throughput=args.no_throughput,
+        no_latency=args.no_latency,
+        no_memory=args.no_memory,
+        no_concurrency=args.no_concurrency,
+        no_scalability=args.no_scalability,
+        no_stress=args.no_stress,
     )
+    
+    # Generate comprehensive report or process all evaluation result files
+    if args.process_all:
+        base_dir = Path('.') / 'evaluation_results'
+        if not base_dir.exists():
+            print(f"Evaluation results directory not found: {base_dir}")
+            return
+        consolidated = {}
+        for jf in sorted(base_dir.glob('*.json')):
+            print(f"Processing: {jf}")
+            run_report = visualizer.generate_comprehensive_report(str(jf), args.comparison, args.scalability)
+            consolidated[jf.name] = run_report or {"created": [], "skipped": []}
+
+        # Write consolidated run report
+        run_report_path = Path(args.output_dir) / 'visualization_run_report.json'
+        try:
+            with open(run_report_path, 'w') as rf:
+                json.dump(consolidated, rf, indent=2)
+            print(f"Consolidated visualization run report saved to: {run_report_path}")
+        except Exception as e:
+            print(f"Failed to write consolidated report: {e}")
+        # Attempt to generate an HTML dashboard embedding the charts
+        html_path = visualizer.generate_html_dashboard(str(run_report_path))
+        if html_path:
+            print(f"Dashboard generated at: {html_path}")
+    else:
+        visualizer.generate_comprehensive_report(
+            args.metrics_file,
+            args.comparison,
+            args.scalability
+        )
 
 if __name__ == "__main__":
     main()

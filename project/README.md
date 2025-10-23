@@ -1135,6 +1135,62 @@ Notes:
 - On Windows PowerShell, running the supplied `run_evaluation.ps1` script may be blocked by execution policy. If needed, run PowerShell as Administrator and set an appropriate policy (for example: `Set-ExecutionPolicy RemoteSigned`) or run the evaluation runner manually as shown above.
 - Python dependencies for the visualizer are in `project/visualizations/requirements.txt` (matplotlib, numpy, pandas, seaborn).
 
+### Visualizer Usage (detailed)
+
+The Python visualizer `project/visualizations/performance_visualizer.py` reads evaluation JSON files and creates PNG charts. It now supports headless operation, per-chart selection flags, batch processing, and an HTML dashboard.
+
+Flags and options
+- `metrics_file` (positional): JSON file to visualize. Ignored when `--process-all` is used.
+- `--comparison <file>`: optional concurrency comparison JSON file.
+- `--scalability <file>`: optional scalability JSON file.
+- `--output-dir <dir>`: directory to write PNGs and reports (default: `visualizations`).
+- `--headless`: do not call `plt.show()`; useful for CI/headless runs.
+- `--no-report`: disable writing the per-run `visualization_report.json`.
+- `--process-all`: process all JSON files inside `project/evaluation_results` and write a consolidated `visualization_run_report.json`.
+
+Per-chart disable flags (use to reduce output):
+- `--no-throughput` : skip throughput analysis charts
+- `--no-latency` : skip latency histograms
+- `--no-memory` : skip memory timeline chart
+- `--no-concurrency` : skip concurrency comparison chart
+- `--no-scalability` : skip scalability analysis chart
+- `--no-stress` : skip single-result/stress test charts
+
+HTML dashboard
+- When `--process-all` is used the visualizer writes `visualization_run_report.json` and attempts to generate `dashboard_index.html` in the output directory. The dashboard embeds generated PNGs and lists skipped/created charts per input file.
+
+Examples
+- Single file, interactive (open windows):
+```powershell
+python visualizations/performance_visualizer.py evaluation_results/full_benchmark_comparison.json
+```
+
+- Single file, headless (CI):
+```powershell
+python visualizations/performance_visualizer.py evaluation_results/full_benchmark_scalability.json --output-dir visualizations --headless
+```
+
+- Process all evaluation results and build an HTML dashboard:
+```powershell
+python visualizations/performance_visualizer.py dummy.json --process-all --output-dir visualizations --headless
+```
+
+- Process all but skip memory and stress charts:
+```powershell
+python visualizations/performance_visualizer.py dummy.json --process-all --no-memory --no-stress --output-dir visualizations --headless
+```
+
+Output files
+- `*.png` : Generated chart images
+- `visualization_report.json` : per-last-run report (created/skipped)
+- `visualization_run_report.json` : consolidated per-file report (when `--process-all` used)
+- `dashboard_index.html` : simple HTML dashboard embedding charts (generated when consolidated report exists)
+
+Tips
+- Run `pip install -r visualizations/requirements.txt` before running the visualizer.
+- Use `--headless` in automation. Use `--no-report` if you don't want JSON reports.
+
+
 ## 🧪 Tests & validation
 
 Run all Go tests and the benchmarks (where present):
