@@ -1,0 +1,9 @@
+logic
+goes the code
+how the problems formulated
+how is the mindset being set
+basic implementation
+what the mindset is
+
+show special features like "not an object-oriented language"
+show real-time data rendering efficiency
