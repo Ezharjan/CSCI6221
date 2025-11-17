@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="High-performance Continuous Double-Auction exchange simulator in Go with autonomous trading agents and real-time order matching">
+    <meta name="keywords" content="CDA, exchange simulator, Go, trading, order matching, market microstructure, autonomous agents">
+    <title>CDA Exchange Simulator - High-Performance Trading System in Go</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+        
+        h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.3em;
+            opacity: 0.95;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .main-content {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            margin: 20px 0;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        h2 {
+            color: #667eea;
+            margin: 30px 0 15px 0;
+            font-size: 2em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .feature-card {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            padding: 25px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .feature-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+        
+        .stats {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .stat-item {
+            display: inline-block;
+            margin: 10px 30px;
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .cta-buttons {
+            text-align: center;
+            margin: 40px 0;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 15px 35px;
+            margin: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: white;
+            opacity: 0.9;
+        }
+        
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #e83e8c;
+        }
+        
+        ul {
+            margin: 15px 0 15px 30px;
+        }
+        
+        li {
+            margin: 8px 0;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+            
+            .subtitle {
+                font-size: 1.1em;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .stat-item {
+                margin: 10px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 CDA Exchange Simulator</h1>
+            <p class="subtitle">A high-performance, concurrent Continuous Double-Auction exchange simulator implemented in Go, demonstrating advanced market microstructure simulation with autonomous trading agents and real-time order matching.</p>
+        </header>
+        
+        <div class="main-content">
+            <section>
+                <h2>📊 Project Overview</h2>
+                <p>This project implements a CDA exchange simulator that showcases Go's concurrency features through goroutines and channels. The simulator features a central order book with FIFO price-time priority matching and autonomous agents operating in parallel.</p>
+                
+
+            </section>
+            
+            <section>
+                <h2>✨ Key Features</h2>
+                <div class="features">
+                    <div class="feature-card">
+                        <h3>🚀 Performance Focused</h3>
+                        <p>Designed for efficient trade processing with concurrent operations</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>⚡ Concurrent Design</h3>
+                        <p>Leverages Go's goroutines and channels for parallel agent operations</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>📖 FIFO Order Book</h3>
+                        <p>Central order book with price-time priority matching algorithm</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>🤖 Autonomous Agents</h3>
+                        <p>Random traders, market makers, and trend followers operating independently</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>🔒 Thread Safety</h3>
+                        <p>Maintains strict order priority with concurrent access control</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>📈 Real-time Matching</h3>
+                        <p>Instant order execution with market microstructure simulation</p>
+                    </div>
+                </div>
+            </section>
+            
+            <section>
+                <h2>🛠️ Technology Stack</h2>
+                <ul>
+                    <li><strong>Language:</strong> Go (Golang) - leveraging native concurrency primitives</li>
+                    <li><strong>Concurrency:</strong> Goroutines and channels for parallel processing</li>
+                    <li><strong>Data Structures:</strong> Optimized order book implementation</li>
+                    <li><strong>Architecture:</strong> Agent-based simulation with message passing</li>
+                </ul>
+            </section>
+            
+            <section>
+                <h2>🎮 Trading Agent Types</h2>
+                <ul>
+                    <li><strong>Random Traders:</strong> Place orders with random prices and quantities</li>
+                    <li><strong>Market Makers:</strong> Provide liquidity by maintaining bid-ask spreads</li>
+                    <li><strong>Trend Followers:</strong> React to market movements and price trends</li>
+                </ul>
+            </section>
+            
+            <div class="cta-buttons">
+                <a href="#" class="btn">View on GitHub</a>
+                <a href="#" class="btn btn-secondary">Documentation</a>
+                <a href="#" class="btn btn-secondary">Getting Started</a>
+            </div>
+        </div>
+        
+        <footer>
+            <p>&copy; 2025 CSCI6221 Class - Go Programming Group. Licensed under MIT License.</p>
+        </footer>
+    </div>
+</body>
+</html>
