@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Visualization Dashboard</title>
+<style>
+body{font-family:Arial, Helvetica, sans-serif; margin:20px; background:#f8f9fb; color:#222}
+.container{max-width:1200px;margin:0 auto}
+h1{color:#333}
+.file-section{background:#fff;border:1px solid #e6e9ee;padding:16px;margin-bottom:18px;border-radius:6px;}
+.thumbs{display:flex;flex-wrap:wrap;gap:12px}
+.thumb{width:220px;text-align:center;background:#fafbfc;padding:8px;border-radius:4px;border:1px solid #eee}
+.thumb img{max-width:200px;height:auto;cursor:pointer;border-radius:3px}
+.caption{color:#555;font-size:0.9em;margin-top:6px}
+.summary{margin-top:10px;font-size:0.95em}
+table.metrics{border-collapse:collapse;width:100%;max-width:600px}
+table.metrics td, table.metrics th{border:1px solid #e6e9ee;padding:6px 8px}
+table.metrics th{background:#f1f5f9;text-align:left}
+/* Modal */
+.modal{display:none;position:fixed;z-index:9999;left:0;top:0;width:100%;height:100%;overflow:auto;background:rgba(0,0,0,0.75)}
+.modal-content{margin:5% auto;display:block;max-width:90%;max-height:85%}
+.modal-close{position:absolute;right:22px;top:12px;color:#fff;font-size:28px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Visualization Dashboard</h1>
+<p>Generated on: 2025-10-22T20:06:31.102685 UTC</p>
+<div class="file-section"><h2>full_benchmark_comparison.json</h2>
+<p class="caption">No charts created for this file.</p>
+</div>
+<div class="file-section"><h2>full_benchmark_scalability.json</h2>
+<div class="thumbs">
+<div class="thumb"><img src="scalability_analysis.png" alt="scalability_analysis.png" onclick="openModal('scalability_analysis.png')"/><div class="caption">scalability_analysis.png</div></div>
+</div>
+</div>
+<div class="file-section"><h2>full_benchmark_stress.json</h2>
+<div class="thumbs">
+<div class="thumb"><img src="stress_test__highload_chart.png" alt="stress_test__highload_chart.png" onclick="openModal('stress_test__highload_chart.png')"/><div class="caption">stress_test__highload_chart.png</div></div>
+<div class="thumb"><img src="stress_test__longduration_chart.png" alt="stress_test__longduration_chart.png" onclick="openModal('stress_test__longduration_chart.png')"/><div class="caption">stress_test__longduration_chart.png</div></div>
+<div class="thumb"><img src="stress_test__megaload_chart.png" alt="stress_test__megaload_chart.png" onclick="openModal('stress_test__megaload_chart.png')"/><div class="caption">stress_test__megaload_chart.png</div></div>
+</div>
+</div>
+<div class="file-section"><h2>scalability_evaluation.json</h2>
+<div class="thumbs">
+<div class="thumb"><img src="scalability_analysis.png" alt="scalability_analysis.png" onclick="openModal('scalability_analysis.png')"/><div class="caption">scalability_analysis.png</div></div>
+</div>
+</div>
+<div id="modal" class="modal" onclick="closeModal()">
+<span class="modal-close" onclick="closeModal()">&times;</span>
+<img class="modal-content" id="modal-img">
+</div>
+<script>
+function openModal(src){
+  var m = document.getElementById("modal");
+  var mi = document.getElementById("modal-img");
+  mi.src = src;
+  m.style.display = "block";
+}
+function closeModal(){
+  var m = document.getElementById("modal");
+  m.style.display = "none";
+  document.getElementById("modal-img").src = "";
+}
+document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeModal(); });
+</script>
+</div>
+</body>
+</html>
