@@ -1,0 +1,26 @@
+{
+  "full_benchmark_comparison.json": {
+    "created": [],
+    "skipped": []
+  },
+  "full_benchmark_scalability.json": {
+    "created": [
+      "scalability_analysis.png"
+    ],
+    "skipped": []
+  },
+  "full_benchmark_stress.json": {
+    "created": [
+      "stress_test__highload_chart.png",
+      "stress_test__longduration_chart.png",
+      "stress_test__megaload_chart.png"
+    ],
+    "skipped": []
+  },
+  "scalability_evaluation.json": {
+    "created": [
+      "scalability_analysis.png"
+    ],
+    "skipped": []
+  }
+}
