@@ -36,6 +36,8 @@ func main() {
 
 	// Create simulation
 	sim := simulation.New()
+	// Attach metrics collector so simulation records trade series
+	sim.SetMetricsCollector(metricsCollector)
 	
 	fmt.Println("Starting simulation with Go concurrency features...")
 	startTime := time.Now()
@@ -198,20 +200,17 @@ func exportMetrics(collector *metrics.MetricsCollector, exportPath string) {
 		return
 	}
 	
-	// Export to JSON
-	jsonData, err := collector.ExportToJSON()
-	if err != nil {
-		fmt.Printf("Error exporting metrics: %v\n", err)
+	// Export metrics and separate trades.json
+	if err := collector.ExportWithTradesTo(exportPath); err != nil {
+		fmt.Printf("Error exporting metrics and trades: %v\n", err)
 		return
 	}
-	
-	if err := os.WriteFile(exportPath, jsonData, 0644); err != nil {
-		fmt.Printf("Error writing metrics file: %v\n", err)
-		return
-	}
-	
+
+	tradesPath := filepath.Join(filepath.Dir(exportPath), "trades.json")
 	fmt.Printf("Metrics successfully exported to: %s\n", exportPath)
+	fmt.Printf("Trade series exported to: %s\n", tradesPath)
 	fmt.Printf("Use the Python visualizer to generate charts: python visualizations/performance_visualizer.py %s\n", exportPath)
+	fmt.Printf("Or visualize the trade series directly: python visualizations/trades_visualizer.py %s\n", tradesPath)
 }
 
 // runBenchmarkAnalysis performs additional benchmark analysis

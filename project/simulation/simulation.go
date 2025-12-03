@@ -3,8 +3,10 @@ package simulation
 import (
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"cda-simulator/agent"
+	"cda-simulator/metrics"
 	"cda-simulator/orderbook"
 )
 
@@ -14,6 +16,7 @@ type Sim struct {
 	agentsMu   sync.RWMutex
 	Stock      string
 	tradeCount int64
+	Metrics    *metrics.MetricsCollector
 }
 
 func New() *Sim {
@@ -24,6 +27,12 @@ func New() *Sim {
 	}
 	s.Book.OnTrade = s.handleTrade
 	return s
+}
+
+// SetMetricsCollector attaches a metrics collector to the simulation so trades
+// can be recorded as time-series data.
+func (s *Sim) SetMetricsCollector(mc *metrics.MetricsCollector) {
+	s.Metrics = mc
 }
 
 func (s *Sim) GetBook() *orderbook.OrderBook {
@@ -45,6 +54,10 @@ func (s *Sim) handleTrade(t orderbook.Trade) {
 		seller.EventChan <- agent.FillEvent{OrderID: t.SellerOrderID, Price: t.Price, Quantity: t.Quantity, IsBuy: false}
 	}
 	atomic.AddInt64(&s.tradeCount, 1)
+	// Record trade in metrics time-series if collector attached
+	if s.Metrics != nil {
+		s.Metrics.RecordTradeEvent(time.Now(), t.Price, t.Quantity)
+	}
 }
 
 func (s *Sim) GetTradeCount() int64 {

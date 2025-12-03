@@ -3,6 +3,8 @@ package metrics
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
@@ -27,6 +29,7 @@ type MetricsCollector struct {
 	heapAllocations    []uint64
 	numCPU             int
 	maxGoroutines      int
+	tradeSeries        []TradeSnapshot      // history of trades (timestamp, price, quantity)
 }
 
 // MemorySnapshot captures memory usage at a point in time
@@ -45,6 +48,13 @@ type GCSnapshot struct {
 	NumGC        uint32    `json:"num_gc"`
 	PauseTotalNs uint64    `json:"pause_total_ns"`
 	LastPauseNs  uint64    `json:"last_pause_ns"`
+}
+
+// TradeSnapshot captures a single trade event for time-series export
+type TradeSnapshot struct {
+	Timestamp time.Time `json:"timestamp"`
+	Price     float64   `json:"price"`
+	Quantity  float64   `json:"quantity"`
 }
 
 // PerformanceMetrics contains all collected performance data
@@ -67,6 +77,7 @@ type PerformanceMetrics struct {
 	GCSnapshots          []GCSnapshot        `json:"gc_snapshots"`
 	OrderLatencyHist     []int64             `json:"order_latency_histogram"`
 	TradeLatencyHist     []int64             `json:"trade_latency_histogram"`
+	TradeSeries          []TradeSnapshot     `json:"trade_series"`
 }
 
 // NewMetricsCollector creates a new metrics collector
@@ -81,7 +92,15 @@ func NewMetricsCollector() *MetricsCollector {
 		gcStats:         make([]GCSnapshot, 0, 1000),
 		heapAllocations: make([]uint64, 0, 1000),
 		numCPU:          runtime.NumCPU(),
+		tradeSeries:     make([]TradeSnapshot, 0, 10000),
 	}
+}
+
+// RecordTradeEvent appends a trade (timestamp, price, quantity) to the time-series
+func (mc *MetricsCollector) RecordTradeEvent(ts time.Time, price float64, quantity float64) {
+	mc.mutex.Lock()
+	defer mc.mutex.Unlock()
+	mc.tradeSeries = append(mc.tradeSeries, TradeSnapshot{Timestamp: ts, Price: price, Quantity: quantity})
 }
 
 // Start begins metrics collection
@@ -251,6 +270,7 @@ func (mc *MetricsCollector) GetMetrics() PerformanceMetrics {
 		GCSnapshots:          mc.gcStats,
 		OrderLatencyHist:     orderLatencyHist,
 		TradeLatencyHist:     tradeLatencyHist,
+		TradeSeries:          mc.tradeSeries,
 	}
 }
 
@@ -292,6 +312,40 @@ func (mc *MetricsCollector) createLatencyHistogram(latencies []time.Duration) []
 func (mc *MetricsCollector) ExportToJSON() ([]byte, error) {
 	metrics := mc.GetMetrics()
 	return json.MarshalIndent(metrics, "", "  ")
+}
+
+// ExportWithTradesTo writes the main metrics JSON (without the trade series)
+// to `exportPath` and writes a separate `trades.json` in the same directory
+// containing the recorded trade time-series. This keeps the bulk trade data
+// separate from the main performance metrics file.
+func (mc *MetricsCollector) ExportWithTradesTo(exportPath string) error {
+	// Get metrics snapshot (GetMetrics handles locking internally)
+	metrics := mc.GetMetrics()
+
+	// Separate trade series from the main metrics
+	trades := metrics.TradeSeries
+	metrics.TradeSeries = nil
+
+	// Marshal and write main metrics
+	data, err := json.MarshalIndent(metrics, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(exportPath, data, 0644); err != nil {
+		return err
+	}
+
+	// Marshal and write trades.json next to exportPath
+	tradesPath := filepath.Join(filepath.Dir(exportPath), "trades.json")
+	tradesData, err := json.MarshalIndent(trades, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(tradesPath, tradesData, 0644); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // PrintSummary prints a summary of the metrics
